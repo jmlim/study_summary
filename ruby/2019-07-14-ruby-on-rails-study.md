@@ -8,7 +8,7 @@
 
 https://rubyinstaller.org/downloads/
 
-<img src="ruby_img/ruby_install_site.png" />
+<img src="{{ site.baseurl }}/ruby_img/ruby_install_site.png" />
 
  - With devkit 의 진한글씨로 선택되어 있는 버전을 설치함.
  - 레일즈 프로젝트를 위해서는 Development Kit 이 필요.
@@ -95,7 +95,7 @@ Use Ctrl-C to stop
 
 ## 6. 서버 실행 후 브라우저에 localhost:3000 실행
 
-<img src="ruby_img/ruby_localhost.png" />
+<img src="{{ site.baseurl }}/ruby_img/ruby_localhost.png" />
 
 > 여기까지 했으면 설치는 완료
 
