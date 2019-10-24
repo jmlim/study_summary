@@ -47,12 +47,287 @@
 
 ## 4.2. 전자상거래 데이터 모델 설계
 
+- 전자상거래는 익숙한 데이터 모델링 패턴을 많이 가지고 있음.
+	- 상품, 카테고리, 상품명, 주문이 통상적으로 RDBMS에서 어떻게 모델링되는지 쉽게 생각할 수 있다.
+- 전자상거래는 전적으로 RDBMS에 속한 도메인
+	- 트랜잭션 필요.
+	- 다양한 데이터 모델과 동적인 쿼리가 RDBMS에 가장 적합.
+	- 전자상거래의 백엔드 시스템 전체를 구축하는 것은 이 책의 분량으로는 현실적이지 않음.
+		- 상품, 고객 리뷰와 같은 보편적이고 유용한 전자상거래 개체들을 몇 개 선택해서 MongoDB로 어떻게 모델링 하는지를 보일 것이다.
+- 많은 개발자에게 데이터 모델(data model)과 객체 매핑(object mapping) 은 떼어서 생각할 수 없다.
+	- 이러한 객체 매핑을 위해 자바의 hibernate나 루비의 ActiveRecord 같은 ORM 사용.
+		- RDBMS 상에서 애플리케이션을 효율적으로 개발하기 위해서는 대부분의 경우에 그러한 라이브러리 필요.
+		- MongoDB에서는 ORM에 대한 필요성이 상대적으로 낮음.
+			- 도큐먼트가 이미 객체와 같은 표현
+			- 드라이버가 사용하기 쉬움
+	- 객체 매퍼는 인증, 타입 체킹, 그리고 모델관의 연관(association)을 용이하게 해줌.
+	- MongoDB를 처음 배울땐 객체 매퍼를 사용하지 않는것을 권장.
+	
+### 4.2.1. 스키마 기본 
+ - 어떠한 상품 도큐먼트라도 상품이 필요로 하는 동적인 속성을 받아들일 수 있다.
+ - 도큐먼트 내에서 배열을 사용하면, RDBMS에서 여러 개의 테이블로 표현되는 것이 MongoDB에서는 하나의 컬렉션으로 줄어들 수 있다.
+
+샘플 상품 도큐먼트
+ - 도큐먼트는 기본적인 name, sku, description 필드를 가지고 있음. 또한 _id필드에는 MongoDB 객체 ID가 저장되어 있다.
+> 4.1. 샘플 상품 도큐먼트
+~~~
+{
+	_id: ObjectId("4c4b1476238d3b4dd5003981"), // 1. 고유 객체 ID
+	slug: "wheelbarrow-9092", // 2. 고유 슬러그
+	sku: "9092",
+	name: "Extra Large Wheelbarrow",
+	description: "Heavy duty wheelbarrow...",
+	details: {  // 3. 중첩 도큐먼트
+		weight: 47,
+		weight_units: "lbs",
+		model_num: 4039283402,
+		manufacturer: "Acme",
+		color: "Green",
+	},
+	total_reviews: 4,
+	average_review: 4.5,
+	pricing: {
+		retail: 589700,
+		sale: 489700
+	},
+	price_history: [                       // 4. primary_category와 price_history는 1대 다 관계
+		{
+			retail: 529700,
+			sale: 429700,
+			start: new Date(2010,4,1),
+			end: new Date(2010,4,8)
+		},
+		{
+			retail: 529700,
+			sale: 529700,
+			start: new Date(2010, 4, 9),
+			end: new Date(2010, 4, 16)
+		}
+	],
+	primary_category: ObjectId("6a5b1476238d3b4dd500048"),
+	category_ids: [  // 5. 다대다 관계
+		ObjectId("6a5b1476238d3b4dd500048"),
+		ObjectId("6a5b1476238d3b4dd500049")
+	],
+}
+~~~
+
+#### 고유한 슬러그
+ - slug 필드 
+	- ex) http://mygadensite.org/products/wheelbarrow-9092
+	- 도큐먼트에 대한 URL을 생성할 때는 슬러그 필드를 만들 것을 권함.
+	- 그러한 필드에 대해서는 고유 인덱스를 만들어서 해당필드의 값이 빠른 쿼리 접근 및 고유성을 보장하도록 한다.
+	- db.products.createIndex({slug: 1}, {unique: true})
+		- slug에 대한 고유 인덱스 생성했다면 중복된 값을 삽입 시 exception 발생.
+
+#### 중첩 도큐먼트
+- detail
+	- 여러가지 상품에 대한 자세한 정보를 갖는 서브도큐먼트.
+	- 무게와 무게의 단위, 제조사의 모델 번호가 명시되나 기타 다른 속성도 포함될 수 있다.
+		- 상품의 종류에 따라서 
+		- 또는 현재의 가격과 과거의 가격 등
+		
+
+#### 일대다 관계
+ - 상품과 카테고리에 대한 관계를 형성
+ - 상품이 오직 하나의 주요 카테고리만 가지고 있지만, 카테고리는 많은 상품들의 주요 카테고리가 될 수 있으므로 이는 일대다 관계.
+
+#### 다대다 관계
+ - 각 삼품을 주요 카테고리 외에 관련 있는 카테고리 목록들과 관계를 맺을 수도 있다.
+	- 이 경우 각 상품이 하나 이상의 카테고리에 속하고, 각 카테고리 역시 하나 이상의 상품을 가지므로 다대다 관계.
+	- RDBMS에서는 이런 다대다 관계를 표현하기 위해 조인 테이블을 이용.
+		- 하나의 테이블을 만들어 두 테이블 간의 모든 관계에 대한 참고를 저장.
+		- 해당 테이블을 사용하여 join 을 걸면 한 쿼리로 하나의 상품과 그 상품이 속해있는 모든 카테고리나 그 반대의 경우를 모두 불러올 수 있음.
+	- MongoDB는 조인을 지원하지 않으므로 다대다 관계를 위해서는 다른 어떤것이 필요.
+		- 좀 전에 객체 ID를 가지고 있는 category_ids(5) 라는 필드를 정의한 바 있음.
+		- 각 객체 ID는 카테고리 도큐먼트의 _id 필드에 대한 레퍼런스이다.
+
+#### 관계 구조
+ - 아래 예 참고, db.categories.insert(newCategory)
+
+> 리스트 4.2. 카테고리 도큐먼트
+~~~
+{
+	_id: ObjectId("6a5b1476238d3b4dd500048"),
+	slug: "gardening-tools",
+	name: "Gardening Tools",
+	description: "Gardening gadgets galore!",
+	parent_id: ObjectId("55804822812cb336b78728f9"),
+	ancestors: [
+		{
+			name: "Home",
+			_id: ObjectId("558048f0812cb336b78728fa"),
+			slug: "home"
+		},
+		{
+			name: "Outdoors",
+			_id: ObjectId("55804822812cb336b78728f9"),
+			slug: "outdoors"
+		}
+	]
+}
+~~~
+
+ - 위 도큐먼트에서 category_ids 필드의 객체 아이디를 주의깊게 살펴보면 이 상품이 가드닝 툴(Gardening Tools) 카테고리에 속해 있는 것을 알 수 있다.
+ - 상품 도큐먼트의 category_ids 배열은 다대다 관계에 대한 모든 종류의 질의를 가능하게 한다.
+~~~
+db.products.find({category_ids: ObjectId('6a5b1476238d3b4dd500048')})
+~~~
+ - 어떤 상품이 속해 있는 모든 카테고리를 알기 위해서는 $in 연산자를 사용한다.
+~~~
+db.categories.find({_id: {$in: product['category_ids']})
+~~~
+ - 이전 명령어는 상품(product) 변수가 이미 다음과 비슷한 명령으로 정의되어 있다고 가정한다.
+~~~
+product = db.products.findOne({"slug": "wheelbarrow-9092"})
+~~~
+
+많은 조상 카테고리 도큐먼트를 왜 이렇게 중복해서 저장해야 할까?
+ - 카테고리는 항상 계층 구조로 인식
+	- 데이터베이스에서 그러한 계층 구조를 표현하는 방법은 여러가지가 있음.
+	- 위의 예에서 'Home' 을 상품 카테고리로 'Outdoors'를 'Home' 의 하위 카테고리로 그리고 'Gardening Tools'를 'Outdoors'의 하위 카테고리로 가정.
+	- MongoDB는 조인을 지원하지 않으므로 각 자식 도큐먼트에서 조상 카테고리의 이름을 모두 가지고 있기로 한 것.
+		- 가드닝 상품 카테고리에 속한 상품에 대한 쿼리를 수행 시 Outdoors나 home 과 같은 부모 카테고리를 불러오기 위해 추가적인 쿼리를 수행할 필요 X.
 
 
+### 4.2.2. 사용자와 주문
+
+- 사용자(users)와 주문(order) 을 모델링하는 방법을 살펴보면 또 다른 흔한 관계인 일대다 관계를 설명할 수 있다.
+- 이 경우에 사용자는 하나 이상의 주문을 가지고 있고 RDBMS에서는 주문 테이블에서 외래 키를 사용할 것이다.
+	- 몽고디비에서도 비슷한 방식 사용
+
+> 리스트 4.3. 아이템, 가격, 배송 주소를 가지고 있는 전자상거래 도큐먼트 (orders)
+~~~
+{
+	_id: ObjectId("6a5b1476238d3b4dd500048"),
+	user_id: ObjectId("4c4b1476238d3b4dd5000001"),
+	state: "CART",
+	line_items: [ // <-- 비정규화된 상품정보
+		{
+			_id: ObjectId("4c4b1476238d3b4dd5003981"),
+			sku: "9092",
+			name: "Extra Large Wheelbarrow",
+			quantity: 1,
+			pricing: {
+				retail: 5897,
+				sale: 4897
+			}
+		},
+		{
+			_id: ObjectId("4c4b1476238d3b4dd5003982"),
+			sku: "10027",
+			name: "Rubberized Work Glove, Black",
+			quantity: 2,
+			pricing: {
+				retail: 1499,
+				sale: 1299
+			}
+		}
+	],
+	shipping_address: {
+		street: "588 5th Street",
+		city: "Brooklyn",
+		state: "NY",
+		zip: 11215
+	},
+	sub_total: 6196  // <-- 비정규화된 세일 가격의 합
+}
+~~~
+
+##### 이 주문 도큐먼트의 두번째 속성인 user_id 는 사용자의 _id 값을 가지고 있음.
+ - 아래 리스트 4.4 에서 보이는 것과 같은 샘플 사용자를 가리팀.
+ - 이렇게 모델링하면 관계의 어느 쪽에 대해서도 쿼리를 쉽게 할 수 있음.
+
+- 어느 한 사용자가 주문한 모든 주문 찾기.
+~~~
+db.orders.find({user_id: user['_id']})
+~~~
+ - 특정 주문에 대한 사용자의 도큐먼트를 얻기 위한 쿼리.
+~~~
+db.users.findOne({_id: : order['user_id']})
+~~~
+
+따라서 주문과 사용자 사이에 존재하는 일대다 관계가 객체 ID를 레퍼런스로 사용해서 쉽게 구현됨.
+
+#### 도큐먼트에 대한 생각.
+ - 주문 도큐먼트의 몇가지 눈에 띄는 점.
+	- 객체를 전체적으로 표현하기 위해서 도큐먼트의 데이터 모델이 제공하는 다양한 표현 사용.
+	- 주문 도큐먼트가 아이템과 배송 주소를 모두 가지고 있으며, 정규화된 관계 모델에서 이런 속성은 별도의 테이블로 표현됨.
+	- 주문 아이템은 서브 도큐먼트의 배열로 이루어져 있는데, 각각은 쇼핑 카드에 있는 한 상품을 나타낸다.
+	- 배송 주소는 주소 필드를 가지고 있는 하나의 객체를 가리킴
+ - 이러한 표현의 장점? 
+	- 사람이 이해하기 쉬움.
+		- 아이템, 배송 주소, 지불 정보를 포함한 주문의 전반적인 개념이 하나의 개체 안에 들어감.
+	- 데이터베이스에 대해 질의할 때 간단한 쿼리로 주문 객체 전체를 반환할 수 있다.
+	- 또한 상품이 구매된 후에는 주문 아이템들이 주문 도큐먼트 내에서 효과적으로 동결된다.
+	- 주문 도큐먼트에 대한 질의와 수정이 용이
+
+- 사용자 도큐먼트는 주소 도큐먼트의 리스트와 함게 지불 방식 도큐먼트의 리스트를 저장.
+- 도큐먼트의 최상위 레벨에서 어떤 사용자 모델에도 공통적인 기본 속성 저장.
+- 그리고 상품의 slug 필드와 같이 사용자 이름 필드가 고유 인덱스를 갖는것이 현명함.
+	
+> 리스트 4.4. 주소와 지불 방식을 가지고 있는 사용자 도큐먼트.
+~~~
+{
+	_id: ObjectId("4c4b1476238d3b4dd5000001"),
+	username: "kbanker",
+	email: "kylebanker@gmail.com",
+	first_name: "Kyle",
+	last_name: "Banker",
+	hash_password: "bd1cfa194c4a603e7186780824b04419",
+	address: [
+		{
+			name: "home",
+			street: "588 5th Street",
+			city: "Brooklyn",
+			state: "NY",
+			zip: 11215
+		},
+		{
+			name: "work",
+			street: "1 E. 23rd Street",
+			city: "New York",
+			state: "NY",
+			zip: 10010
+		}
+	],
+	payment_method: [
+		name: "VISA",
+		payment_token: "43f6ba1dfda65b8106dc7"
+	]
+}
+~~~
 
 
+### 4.2.3. 상품평
+ - 리스트 4.5 에 등장하는 상품평을 마지막으로 살펴본다.
+	- 각 상품은 많은 상품평을 가질 수 있고 product_id를 각각의 상품평에 저장함으로써 관계를 만들어 낼 수 있다.
 
+> 리스트 4.5. 상품평을 나타내는 도큐먼트
+~~~
+{
+	_id: ObjectId("4c4b1476238d3b4dd5000041"),
+	product_id: ObjectId("4c4b1476238d3b4dd5003981"),
+	date: new Date(2010,5,7),
+	title: "Amazing",
+	text: "Has a squeaky wheel, but still a darn good wheelbarrow.",
+	rating: 4,
+	user_id: ObjectId("4c4b1476238d3b4dd5000042"),
+	username: "dgreenthumb",
+	helpful_votes: 3,
+	voter_ids: [
+		ObjectId("4c4b1476238d3b4dd5000033"),
+		ObjectId("7a4f0376238d3b4dd5000003"),
+		ObjectId("92c21476238d3b4dd5000032")
+	]
+}
+~~~
 
-
-
-아직 정리 못함
+- 리뷰한 날짜, 제목, 텍스트와 사용자에 의해 주어진 평점과 사용자의 id를 저장.
+	- MongoDB에서는 조인이 없으므로 각 리뷰마다 사용자 컬렉션에 대해 질의하거나 비정규화를 해야함.
+	- 위에서는 사용자 이름은 거의 바뀌지 않으므로 user_id 와 사용자이름(username) 을 같이 저장함으로써 매번 사용자 컬렉션을 질의하지 않음
+- 상품평 도큐먼트에 추천수를 저장
+	- 여기서 추천한 사용자의 객체 ID를 배열로 저장했다.
+		- 사용자가 하나의 상품평에 대해 한번 이상 추천하는 것을 막음.
+		
+	
