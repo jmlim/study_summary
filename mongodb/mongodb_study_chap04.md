@@ -293,10 +293,10 @@ db.users.findOne({_id: : order['user_id']})
 			zip: 10010
 		}
 	],
-	payment_method: [
+	payment_method: [ {
 		name: "VISA",
 		payment_token: "43f6ba1dfda65b8106dc7"
-	]
+	}]
 }
 ~~~
 
