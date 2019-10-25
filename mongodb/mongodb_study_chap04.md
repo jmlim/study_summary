@@ -109,6 +109,8 @@
 		ObjectId("6a5b1476238d3b4dd500048"),
 		ObjectId("6a5b1476238d3b4dd500049")
 	],
+	main_cat_id: ObjectId("6a5b1476238d3b4dd500048"),
+	tags: ["tools","gardening", "soil"]
 }
 ~~~
 
