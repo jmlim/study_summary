@@ -5,7 +5,7 @@
 - AMQP 자체가 프로토콜을 의미하기 때문에 이 프로토콜을 구현한 MQ제품들은 여러가지가 있으며 그 중 하나가 RabbitMQ이다.
 
 ### AMQP의 라우팅 모델은 Exchange와 Queue 그리고 Binding으로 구성된다. 
-   <img src="/rabbitmq/rabbitmq-binding-img.png" />
+   <img src="/rabbitmq_img/rabbitmq-binding-img.png" />
 
 - Exchange는 Publisher(Producer)로부터 수신한 메시지를 큐에 분배하는 라우터의 역할을 하며, Queue는 메시지를 메모리나 디스크에 저장했다가 Consumer에게 메시지를 전달하는 역할을 한다. Binding은 Exchange와 Queue의 관계를 정의한 것을 말한다.
 - Exchange Type은 메시지를 어떠한 방법으로 라우팅할지 결정하는 일종의 알고리즘을 말하며 AMQP에서는 다음과 같이 Exchange Type을 정의하고 있다.
@@ -37,7 +37,7 @@ RabbitMQ는 AMQP를 구현한 오픈 소스 메시지 브로커 소프트웨어�
 - Header Exchange	
     - amq.match(and amq.headers in RabbitMQ)
 
-<img src="/rabbitmq/rabbitmq-tutorial-img.png" />
+<img src="/rabbitmq_img/rabbitmq-tutorial-img.png" />
 
 [출처] RabbitMQ와 Spring AMQP를 이용한 간단한 작업 큐 만들기 | 작성자 개발몬스터
 - https://blog.naver.com/PostView.nhn?blogId=tmondev&logNo=220419853534&parentCategoryNo=&categoryNo=6&viewDate=&isShowPopularPosts=false&from=postView
