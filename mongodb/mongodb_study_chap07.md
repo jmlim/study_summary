@@ -11,7 +11,7 @@
 	- 전체를 대치
 	- 업데이트 연산자 사용하여 특정 필드 수정
 
-### 대치에 의한 수정
+## 대치에 의한 수정
 ~~~
 	user_id = ObjectId("4c4b1476238d3b4dd5003981")
 	doc = db.users.findOne({_id: user_id})
@@ -21,7 +21,7 @@
 ~~~
  - 사용자 _id를 가지고 먼저 도큐먼트 질의 후 email 속성 수정 후에 전체 도큐먼트를 대치.
  
-### 연산자에 의한 수정.
+## 연산자에 의한 수정.
 ~~~
 	user_id = ObjectId("4c4b1476238d3b4dd5000001")
 	db.users.update({_id: user_id}, {$set: {email: 'mongodb-user2@mongodb.com'}})
@@ -29,7 +29,7 @@
  - 서버에 한 번의 요청으로 이메일 주소를 수정하기 위해 update 연산자 중 하나인 $set을 사용.
 	- 주어진 고전으로 사용자 도큐먼트를 찾아서 email 필드를 mongodb-user2@mongodb.com로 수정.
 
-### 결정: 대치 vs 연산자
+## 결정: 대치 vs 연산자
  - 두 가지 방법 중 한가지를 선택하는 기준은?
 	- 대치에 의한 수정은 좀 더 일반적인 방식.
 		- 사용자의 어떤 속성을 수정하든지 상관없이 업데이트를 수행하는 코드는 동일
@@ -43,34 +43,34 @@
 					- 타깃 업데이트는 $inc를 사용해서 카운터를 자동으로 증가할 수 있다.
 						- 이것은 대량의 동시적 업데이트일지라도 각각의 $inc는 고립적으로 적용되어 증가되거나 증가되지 않거나 둘 중의 한가지만 가능하다.
 
-###  낙관적 잠금
+##  낙관적 잠금
  - 낙관적 잠금 혹은 낙관적 동시성 제어는 레코드를 잠그지 않고도 업데이트 연산이 제대로 수행되는 것을 보장하기 위한 기술.  
  - 이 기술을 이해하는 가장 쉬운 방법은 위키를 생각해 보는 것. 위키에서는 하나의 페이지를 여러 사용자가 동시에 수정 가능하다.
  - 하지만 수정하고 저장할 때 다른 사람에 의해 수정된 내용을 덮어쓰게 되는 경우는 결코 원치 않을 것임. 따라서 낙관적 잠금 프로토콜이 사용됨. 
  - 사용자가 수정한 후에 업데이트 하려고 할 때 타임스탬프 포함시킴. 그 타임스탬프가 페이지의 최종 저장 시간보다 더 이전이면 업데이트를 할 수 없음. 하지만 아무도 그 페이지에 대해 수정하지 않았다면 업데이트가 가능하다.
 	- 이 전략은 여러 사용자가 동시에 페이지를 수정하는 것을 가능하게 하는데 사용자가 페이지를 수정하기 위해 lock을 해야 하는 다른 동시성 제어보다 훨씬 낫다.
 	
-### MongoDB 업데이트와 삭제
+## MongoDB 업데이트와 삭제
  - 업데이트는 기본적으로 쿼리 셀렉터와 일치하는 첫 번째 도큐먼트만 함.
 	- 일치하는 모든 도큐먼트를 업데이트하려면 다중 업데이트라고 명확하게 알려 줘야 한다.
  - 업데이트는 도큐먼트 수준에서 원자적임. 즉, 10 개의 도큐먼트를 업데이트해야 하는 경우 처음 세 개를 업데이트한 후 어떤 이유로 실패할 수 있다.
 	- 애플리케이션은 자체적인 정책에 따라 이러한 실패를 처리해야 함.
 	
-### 업서트
+## 업서트
  - 아이템이 없을 경우 새로 추가하고 이미 있다면 업데이트를 하는 것이 일반적으로 필요한 일.
 	- 구현하기 까다로운 이러한 패턴은 보통 MongoDB의 업서트로 처리.
  - 간단한 예
 ~~~
-db.products.update({slug: 'hammer'}, {$addToSet: {tags: 'cheap'}}, {upsert: true})
+    db.products.update({slug: 'hammer'}, {$addToSet: {tags: 'cheap'}}, {upsert: true})
 ~~~
  - 업서트는 한 번에 하나의 도큐먼트만 삽입하거나 업데이트 할 수 있음.
 	- 원자적으로 업데이트 하거나 도큐먼트가 존재하는지의 여부가 불확실할 때 유용하다.
 
-### 업데이트 연산자
+## 업데이트 연산자
  - $inc 연산자는 수치가 증가하거나 감소할 때 사용.
 ~~~
 
-db.products.update({slug: "shovel"}, {$inc: {review_count: 1}})
+    db.products.update({slug: "shovel"}, {$inc: {review_count: 1}})
 
 ~~~
  - $set
@@ -85,14 +85,14 @@ db.readings.update({_id: 324}, {$set: {temp: 97.6}})
 	- $unset은 도큐먼트에서 해당 키를 삭제.
 ~~~
 
-db.readings.update({_id: 324}, {$unset : {temp: 1}})
+    db.readings.update({_id: 324}, {$unset : {temp: 1}})
 
 ~~~
  - $rename
 	- 키의 이름을 바꿔야 할 경우에는 $rename을 사용
 ~~~
 
-db.readings.update({_id: 324}, {$rename : {'temp': 'temperature'}})
+    db.readings.update({_id: 324}, {$rename : {'temp': 'temperature'}})
 
 ~~~
 
@@ -101,7 +101,7 @@ db.readings.update({_id: 324}, {$rename : {'temp': 'temperature'}})
 		- 이 경우 업데이트가 발생할 때가 아니라 도큐먼트가 새 것이고 삽입을 수행할 때만 필드를 수정하도록 지정하는 것이 유용.
 ~~~
 
-db.products.update({slug: 'hammer'}, {$inc : {quantity: 1}, $setOnInsert: {state: 'AVAILABLE'}}, {upsert: true})
+    db.products.update({slug: 'hammer'}, {$inc : {quantity: 1}, $setOnInsert: {state: 'AVAILABLE'}}, {upsert: true})
 
 ~~~
 
@@ -112,35 +112,35 @@ db.products.update({slug: 'hammer'}, {$inc : {quantity: 1}, $setOnInsert: {state
 	 - $pushAll 연산자는 완전히 제거될 수 있으므로 가급적 사용을 피하는 것이 좋음.
 ~~~
 
-// 태그를 여러개 추가 시
-db.products.update({slug: 'shovel'},  {$push: {tags: {$each: ['tools','dirt','garden']}}})
+    // 태그를 여러개 추가 시
+    db.products.update({slug: 'shovel'},  {$push: {tags: {$each: ['tools','dirt','garden']}}})
 
 ~~~
  - $slice
 	 - $push, $each 연산자와 함께 사용해야 함. 결과 배열을 특정 크기로 잘라서 이전 버전을 먼저 제거할 수 있음.
 ~~~
-// 다음과 같은 도큐먼트가 있을 시
-{
-	_id: 326,
-	temps: [92, 93, 94]
-}
-
-// 아래와 같이 업데이트 할 경우
-db.temps.update({_id: 326}, {
-	$push: {
-		temps: {
-			$each: [95, 96],
-			$slice: -4 // 특정 크기로 자름
-		}
-	}
-})
-
-// 업데이트 후 도큐먼트
-// 다음과 같은 도큐먼트가 있을 시
-{
-	_id: 326,
-	temps: [93, 94, 95, 96] // 만약 -4가 아닌 4를 사용했으면 결과는 temps: [92,93,94,95] 가 되었을 것임. 
-}
+    // 다음과 같은 도큐먼트가 있을 시
+    {
+        _id: 326,
+        temps: [92, 93, 94]
+    }
+    
+    // 아래와 같이 업데이트 할 경우
+    db.temps.update({_id: 326}, {
+        $push: {
+            temps: {
+                $each: [95, 96],
+                $slice: -4 // 특정 크기로 자름
+            }
+        }
+    })
+    
+    // 업데이트 후 도큐먼트
+    // 다음과 같은 도큐먼트가 있을 시
+    {
+        _id: 326,
+        temps: [93, 94, 95, 96] // 만약 -4가 아닌 4를 사용했으면 결과는 temps: [92,93,94,95] 가 되었을 것임. 
+    }
 
 
 ~~~
@@ -160,70 +160,70 @@ db.temps.update({_id: 326}, {
 		- 배열에서 원소의 위치 대신 값을 지정해서 아이템을 삭제.
 	- $pullAll 은 $pushAll과 유사, 삭제할 값의 리스트를 저장할 수 있음.
 
-### 위치 업데이트
+## 위치 업데이트
  - 위치 연산자는 쿼리 셀렉터에서 닷 표기법을 사용하여 식별한 배열 내의 서브도큐먼트를 업데이트 할 수 있게 해줌.
 
 > ex) 다음과 같은 주문 도큐먼트가 있다고 가정 시
 ~~~
-{
-	_id: ObjectId("6a5b1476238d3b4dd500048"),
-	line_items: [ // <-- 비정규화된 상품정보
-		{
-			_id: ObjectId("4c4b1476238d3b4dd5003981"),
-			sku: "9092",
-			name: "Extra Large Wheelbarrow",
-			quantity: 1,
-			pricing: {
-				retail: 5897,
-				sale: 4897
-			}
-		},
-		{
-			_id: ObjectId("4c4b1476238d3b4dd5003982"),
-			sku: "10027",
-			name: "Rubberized Work Glove, Black",
-			quantity: 2,
-			pricing: {
-				retail: 1499,
-				sale: 1299
-			}
-		}
-	]
-}
+    {
+        _id: ObjectId("6a5b1476238d3b4dd500048"),
+        line_items: [ // <-- 비정규화된 상품정보
+            {
+                _id: ObjectId("4c4b1476238d3b4dd5003981"),
+                sku: "9092",
+                name: "Extra Large Wheelbarrow",
+                quantity: 1,
+                pricing: {
+                    retail: 5897,
+                    sale: 4897
+                }
+            },
+            {
+                _id: ObjectId("4c4b1476238d3b4dd5003982"),
+                sku: "10027",
+                name: "Rubberized Work Glove, Black",
+                quantity: 2,
+                pricing: {
+                    retail: 1499,
+                    sale: 1299
+                }
+            }
+        ]
+    }
 ~~~
 
 - SKU 가 10027인 두 번째 주문 아이템의 수량을 5로 수정하길 원할 때 문제는 line_items 배열에서 해당 서브도큐먼트가 어디에 있는지 모름.
 	- 심지어 그런 도큐먼트가 존재하는지 여부조자 알 수 없음.
 	- 하지만 간단한 쿼리 셀렉터와 위치 연산자를 사용한 업데이트가 이 두가지 문제를 해결한다.
 ~~~
-query = {
-	_id: ObjectId("6a5b1476238d3b4dd500048"),
-	'line_items.sku': "10027"
-},
-update = {
-	$set: {
-		'line_items.$.quantity' : 5
-	}
-},
-db.orders.update(query, update)
+    query = {
+        _id: ObjectId("6a5b1476238d3b4dd500048"),
+        'line_items.sku': "10027"
+    },
+    update = {
+        $set: {
+            'line_items.$.quantity' : 5
+        }
+    },
+    db.orders.update(query, update)
 ~~~
 
  - line_items.$.quantity 에서 $가 위치 연산자임.
 	- 이 위치 연산자를 SKU가 10027인 도큐먼트의 인덱스로 대치하고, 그 결과 해당 도큐먼트를 업데이트하게 됨.
 	- 데이터 모델에 서브도큐먼트가 있다면 세밀한 도큐먼트 업데이트에 위치 연산자가 매우 유용하다는 사실을 알게 될 것임.
 	
-### findAndModify 명령
+## findAndModify 명령
 ~~~
-doc = db.orders.findAndModify({
-	query: {
-		user_id : ObjectId("4c4b1476238d3b4dd5000001")
-	},
-	update: {
-		$set: {
-			state: "AUTHORIZING"
-		}
-	}
-})
+    doc = db.orders.findAndModify({
+        query: {
+            user_id : ObjectId("4c4b1476238d3b4dd5000001")
+        },
+        update: {
+            $set: {
+                state: "AUTHORIZING"
+            }
+        }
+    })
 ~~~
  - 옵션
 	- query - 도큐먼트 쿼리 셀렉터이고 디폴트 값은 {}
@@ -234,11 +234,11 @@ doc = db.orders.findAndModify({
 	- field - 일부의 필드만 필요하다면 이 옵션을 사용해서 필요한 필드를 지정.
 	- upsert - true 이면 findAndModify를 업서트처럼 수행.
 
-### 삭제
+## 삭제
  - db.reviews.remove({})
  - db.reviews.remove({user_id: ObjectId('4c4b1476238d3b4dd5000001')})
 
-### 동시성, 원자성, 고립
+## 동시성, 원자성, 고립
  - MongoDB에서 동시성(concurrency) 이 어떻게 수행되는지 이해하는 것이 중요함.
  - MongoDB v2.2 는 데이터베이스 레벨 잠금으로 변경. 데이터베이스 레벨에 적용됨.
  - MongoDB v3.0에서 WiredTiger 스토리지 엔진은 컬렉션 레벨에서 작동하며, 도큐먼트 수준의 잠금 기능을 제공.
@@ -261,15 +261,15 @@ doc = db.orders.findAndModify({
 > ex ) $isolated 사용 예
 ~~~
 
-db.reviews.remove({user_id: ObjectId("4c4b1476238d3b4dd5000001"), $isolated: true})
+    db.reviews.remove({user_id: ObjectId("4c4b1476238d3b4dd5000001"), $isolated: true})
 
 ~~~
 
 > 다증 업데이트에 대해서도 동일하게 적용 가능
 
 ~~~
-
-db.reviews.update({$isolated: true}, {$set: {rating: 0}}, {multi: true}) 
+    
+    db.reviews.update({$isolated: true}, {$set: {rating: 0}}, {multi: true}) 
 
 ~~~
 
@@ -277,7 +277,7 @@ db.reviews.update({$isolated: true}, {$set: {rating: 0}}, {multi: true})
 	- 이 연산은 고립되어 수행해서 양보를 하지 않음으로써 시스템의 일관성을 보장.
 	- $isolated을 사용한 연산이 중간에 실패하면 롤백이 발생하지 않음.
 
-### 업데이트 성능.
+## 업데이트 성능.
  - 디스크의 도큐먼트 업데이트할 때 세가지 종류가 있음.
 	- 첫번째는 가장 효율적인 것인데, 하나의 값만 수정하고 전체 BSON 도큐먼트의 크기는 변하지 않을 때.
 		- 가장 일반적인 경우는 $inc 연산자를 사용할 때 발생.
