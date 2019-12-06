@@ -231,9 +231,329 @@
 	> db.setProfilingLevel(2)
 	{ "was" : 0, "slowms" : 100, "sampleRate" : 1, "ok" : 1 }
 ~~~
+ - 프로파일링 하려는 데이터베이스를 먼저 선택. (프로파일링은 항상 특정 데이터베이스에 국한됨)
+ - 데이터베이스를 선택한 다음에는 프로파일링 수준을 2로 지정.
+	- 모든 읽기와 쓰기를 로그에 기록함.
+	- 몇가지 다른 옵션도 가능. 
+		- 느린 연산만을 로그로 남기기 위해서는 프로파일링 수준을 1로 지정하면됨.
+		- 프로파일러를 사용하지 않으려면 0으로 지정하면 됨.
+		- 어떤 임계값을 넘어서는 연산만을 로그로 기록하려면 아래 예제처럼 두 번째 옵션에 그 값을 지정한다.
 
+~~~
+	use stocks
+	db.setProfilingLevel(1, 50)
+~~~
+
+ - 프로파일러를 사용 가능 상태로 바꿨으면 쿼리를 실행해본다. 
+
+#### 주식 데이터에서 최고 종가를 찾기.
+~~~
+	> db.values.find({}).sort({close: -1}).limit(1)
+	{ "_id" : ObjectId("4d094f69c96767d7a01a110d"), "exchange" : "NASDAQ", "stock_symbol" : "BORD", "date" : "2000-09-25", "open" : 7500, "high" : 7500, "low" : 7500, "close" : 7500, "volume" : 0, "adj close" : 6679.94 }
+~~~
+
+#### 프로파일링 결과
+ - 명령을 실행한 데이터베이스에 system.profile 이라고 부르는 특수한 캡드(capped) 컬렉션에 저장된다.
+ - 128kb 바ㄸ에 할당이 되지 않아 프로파일러가 리소스를 많이 사용하지 못한다.
+
+> 쿼리 실행
+~~~
+	> db.system.profile.find().sort({$natural: -1}).limit(5).pretty()
+ ... 대략적인 항목은 아래와 같음.
+{
+        "op" : "query",
+        "ns" : "stocks.values",
+        "command" : {
+        ..... 생략
+        },
+        "keysExamined" : 0,
+        "docsExamined" : 4308304, // 스캔된 도큐먼트 수 
+        "hasSortStage" : true,
+        "cursorExhausted" : true,
+        "numYield" : 33658,
+        "nreturned" : 1, // 반환된 도큐먼트 수 
+        "queryHash" : "B0F07751",
+        "planCacheKey" : "B0F07751",
+        "locks" : {
+			..... 생략
+        },
+        "flowControl" : {
+
+        },
+        "storage" : {
+
+        },
+        "responseLength" : 279, 
+        "protocol" : "op_msg",
+        "millis" : 7029, // 응답속도 (밀리초 단위)
+        "planSummary" : "COLLSCAN",
+        "execStats" : {
+              ..... 생략
+        },
+        "ts" : ISODate("2019-12-06T07:56:17.274Z"),
+        "client" : "127.0.0.1",
+        "appName" : "MongoDB Shell",
+        "allUsers" : [ ],
+        "user" : ""
+}
+
+~~~
+ - 위 쿼리는 실행시간이 7초나 됨. 
+ - 프로파일링 전략에 대한 논의
+	- 적당히 높은 값으로 시작해서 값을 점점 줄여 가면서 수행하는 방법. 처음에는 100밀리초보다 오래 걸리는 쿼리가 없는 것을 확인하고, 그 다음에는 75 밀리초로 낮추는 식.
+	- 프로파일러가 사용 가능 상태로 있는 동안에도 애플리케이션이 원래대로 작동해야 함.
+	- 애플리케이션이 제대로 작동하기 위해서는 데이터의 크기와 쿼리 로드, 하드웨어가 애플리케이션의 실제 서비스 환경과 동일한 실제 조건하에서 그러한 읽기와 쓰기가 수행되어야 함.
+	
 ### 느린 쿼리 분석
+ - 프로파일러를 사용하면 느린 쿼리를 쉽게 찾을 수 있으나 느린 이유를 발견하는 것은 까다롭고 몇 가지 추리력이 필요함.
+ - 느린 쿼리의 이유는 다양함.
+	- 운이 좋으면 인덱스만 추가해도 해결 가능.
+	- 좀 더 어려운 경우는 인덱스를 재구성해야 한다던지 하드웨어를 업ㄷ그레이드 해야할지도 모름.
+ - 가장 간단한 경우는 인덱스가 없거나 적합하지 않은 인덱스 문제임.
+ - explain()을 실행해 봄으로써 확실한 것을 발견할 수 있음.
 
-### 쿼리 패턴
+#### EXPLAIN() 의 사용과 이해
 
- 작성중..
+~~~
+> db.values.find({}).sort({"close": -1}).limit(1).explain("executionStats")
+{
+        "queryPlanner" : {
+                "plannerVersion" : 1,
+                "namespace" : "stocks.values",
+                "indexFilterSet" : false,
+                "parsedQuery" : {
+
+                },
+                "queryHash" : "B0F07751",
+                "planCacheKey" : "B0F07751",
+                "winningPlan" : {
+                        "stage" : "SORT",
+                        "sortPattern" : {
+                                "close" : -1
+                        },
+                        "limitAmount" : 1,
+                        "inputStage" : {
+                                "stage" : "SORT_KEY_GENERATOR",
+                                "inputStage" : {
+                                        "stage" : "COLLSCAN",
+                                        "direction" : "forward"
+                                }
+                        }
+                },
+                "rejectedPlans" : [ ]
+        },
+        "executionStats" : {
+                "executionSuccess" : true,
+                "nReturned" : 1,
+                "executionTimeMillis" : 5682,
+                "totalKeysExamined" : 0,
+                "totalDocsExamined" : 4308304, // 스캔된 수 
+                "executionStages" : {
+                        "stage" : "SORT",
+                        "nReturned" : 1,
+                        "executionTimeMillisEstimate" : 58,
+                        "works" : 4308309,
+                        "advanced" : 1,
+                        "needTime" : 4308307,
+                        "needYield" : 0,
+                        "saveState" : 33658,
+                        "restoreState" : 33658,
+                        "isEOF" : 1,
+                        "sortPattern" : {
+                                "close" : -1
+                        },
+                        "memUsage" : 182,
+                        "memLimit" : 33554432,
+                        "limitAmount" : 1,
+                        "inputStage" : {
+                                "stage" : "SORT_KEY_GENERATOR",
+                                "nReturned" : 4308304,
+                                "executionTimeMillisEstimate" : 46,
+                                "works" : 4308307,
+                                "advanced" : 4308304,
+                                "needTime" : 2,
+                                "needYield" : 0,
+                                "saveState" : 33658,
+                                "restoreState" : 33658,
+                                "isEOF" : 1,
+                                "inputStage" : {
+                                        "stage" : "COLLSCAN",
+                                        "nReturned" : 4308304,
+                                        "executionTimeMillisEstimate" : 7,
+                                        "works" : 4308306,
+                                        "advanced" : 4308304,
+                                        "needTime" : 1,
+                                        "needYield" : 0,
+                                        "saveState" : 33658,
+                                        "restoreState" : 33658,
+                                        "isEOF" : 1,
+                                        "direction" : "forward",
+                                        "docsExamined" : 4308304
+                                }
+                        }
+                }
+        },
+        "serverInfo" : {
+                "host" : "gms-jmlim",
+                "port" : 27017,
+                "version" : "4.2.0",
+                "gitVersion" : "a4b751dcf51dd249c5865812b390cfd1c0129c30"
+        },
+        "ok" : 1
+}
+~~~
+
+#### 인덱스 추가 후 재시도
+ - close 에 대한 인덱스를 만들고 다시 실행
+
+~~~
+	> db.values.createIndex({close: 1})
+	{
+			"createdCollectionAutomatically" : false,
+			"numIndexesBefore" : 1,
+			"numIndexesAfter" : 2,
+			"ok" : 1
+	}
+	>
+~~~
+ - 쿼리 다시 수행
+	- 1밀리초도 채 걸리지 않음을 확인 할 수 있음
+	- 위에 결과와 비교해보면 확인히 차이가 남을 확인할 수 있음
+~~~
+> db.values.find({}).sort({"close": -1}).limit(1).explain("executionStats")
+{
+        "queryPlanner" : {
+                "plannerVersion" : 1,
+                "namespace" : "stocks.values",
+                "indexFilterSet" : false,
+                "parsedQuery" : {
+
+                },
+                "queryHash" : "B0F07751",
+                "planCacheKey" : "B0F07751",
+                "winningPlan" : {
+                        "stage" : "LIMIT",
+                        "limitAmount" : 1,
+                        "inputStage" : {
+                                "stage" : "FETCH",
+                                "inputStage" : {
+                                        "stage" : "IXSCAN",
+                                        "keyPattern" : {
+                                                "close" : 1
+                                        },
+                                        "indexName" : "close_1",
+                                        "isMultiKey" : false,
+                                        "multiKeyPaths" : {
+                                                "close" : [ ]
+                                        },
+                                        "isUnique" : false,
+                                        "isSparse" : false,
+                                        "isPartial" : false,
+                                        "indexVersion" : 2,
+                                        "direction" : "backward",
+                                        "indexBounds" : {
+                                                "close" : [
+                                                        "[MaxKey, MinKey]"
+                                                ]
+                                        }
+                                }
+                        }
+                },
+                "rejectedPlans" : [ ]
+        },
+        "executionStats" : {
+                "executionSuccess" : true,
+                "nReturned" : 1,
+                "executionTimeMillis" : 2,
+                "totalKeysExamined" : 1,
+                "totalDocsExamined" : 1,
+                "executionStages" : {
+                        "stage" : "LIMIT",
+                        "nReturned" : 1,
+                        "executionTimeMillisEstimate" : 0,
+                        "works" : 2,
+                        "advanced" : 1,
+                        "needTime" : 0,
+                        "needYield" : 0,
+                        "saveState" : 0,
+                        "restoreState" : 0,
+                        "isEOF" : 1,
+                        "limitAmount" : 1,
+                        "inputStage" : {
+                                "stage" : "FETCH",
+                                "nReturned" : 1,
+                                "executionTimeMillisEstimate" : 0,
+                                "works" : 1,
+                                "advanced" : 1,
+                                "needTime" : 0,
+                                "needYield" : 0,
+                                "saveState" : 0,
+                                "restoreState" : 0,
+                                "isEOF" : 0,
+                                "docsExamined" : 1,
+                                "alreadyHasObj" : 0,
+                                "inputStage" : {
+                                        "stage" : "IXSCAN",
+                                        "nReturned" : 1,
+                                        "executionTimeMillisEstimate" : 0,
+                                        "works" : 1,
+                                        "advanced" : 1,
+                                        "needTime" : 0,
+                                        "needYield" : 0,
+                                        "saveState" : 0,
+                                        "restoreState" : 0,
+                                        "isEOF" : 0,
+                                        "keyPattern" : {
+                                                "close" : 1
+                                        },
+                                        "indexName" : "close_1",
+                                        "isMultiKey" : false,
+                                        "multiKeyPaths" : {
+                                                "close" : [ ]
+                                        },
+                                        "isUnique" : false,
+                                        "isSparse" : false,
+                                        "isPartial" : false,
+                                        "indexVersion" : 2,
+                                        "direction" : "backward",
+                                        "indexBounds" : {
+                                                "close" : [
+                                                        "[MaxKey, MinKey]"
+                                                ]
+                                        },
+                                        "keysExamined" : 1,
+                                        "seeks" : 1,
+                                        "dupsTested" : 0,
+                                        "dupsDropped" : 0
+                                }
+                        }
+                }
+        },
+        "serverInfo" : {
+                "host" : "gms-jmlim",
+                "port" : 27017,
+                "version" : "4.2.0",
+                "gitVersion" : "a4b751dcf51dd249c5865812b390cfd1c0129c30"
+        },
+        "ok" : 1
+}
+>
+~~~
+
+#### MongoDB 쿼리 옵티마이저
+ - 해당 쿼리를 가장 효율적으로 실행하기 위해 어떤 인덱스를 사용할지 결정하는 소프트웨어
+ - 다음과 같이 아주 간단한 규칙 사용.
+	 - scanAndOrder를 피함. 즉 쿼리가 정렬을 포함하고 있으면 인덱스를 사용한 정렬을 시도.
+	 - 유용한 인덱스 제한 조건으로 모든 필드를 만족시킴. 즉, 쿼리 셀렉터에 지정된 필드에 대한 인덱스를 사용하려고 노력함.
+	 - 쿼리가 범위를 내포하거나 정렬을 포함하면 마지막 키에 대해 범위나 정렬에 도움이 되는 인덱스를 선택.
+
+## 요약
+ - 인덱스는 매우 유용하지만 많은 비용을 수반하므로 쓰기가 느려짐.
+ - 일반적으로 MongoDB는 쿼리에서 하나의 인덱스만 사용하므로 여러 필드의 쿼리는 복합 인덱스가 효율적일 것을 요구.
+ - 복합 인덱스를 선언할 때 순서가 중요함.
+ - 비용이 많이 드는 쿼리를 계획하되 피하는 것이 좋음. 
+	- MongoDB의 explain 명령, 비용이 많이 드는 쿼리 로그 및 프로파일러를 사용하여 최적화된 쿼리를 찾는다.
+ - MongoDB는 인덱스를 작성하는 몇 가지 명령을 제공하지만, 항상 비용이 들며 애플리케이션을 방해할 수 있음. 이는 프래픽이나 데이터가 많아지기 전에 쿼리를 최적화하고 인덱스를 조기에 만들어야 함을 뜻함.
+ - 스캔한 도큐먼트 수를 줄임으로써 쿼리를 최적화한다. explain 명령은 쿼리가 하는 일을 발견하는데 매우 유용하다. 최적화를 지침으로 이를 사용하도록 하자.
+
+ 
