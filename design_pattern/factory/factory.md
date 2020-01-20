@@ -355,7 +355,7 @@ public abstract class Pizza {
 ~~~
 
 ### 피자 클래스 변경. (구상클래스, 치즈피자)
-~~~
+~~~java
 public class CheesePizza extends Pizza {
 	PizzaIngredientFactory ingredientFactory;
  
