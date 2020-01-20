@@ -252,7 +252,7 @@ public class NYStyleCheesePizza extends Pizza {
 <img src="/design_pattern/factory_img/factory_method_img.jpg" />
 
 -------
-### 추상 팩토리 패턴
+## 추상 팩토리 패턴
  - 인터페이스를 이용하여 서로 연관된, 또는 의존하는 객체를 구상 클래스를 지정하지 않고도 생성 가능.
  - 목적
     - 구체적인 클래스를 알지 못하고, 서로 관련성이 있으나, 독립적인 여러객체 군을 생성하기 위한 인터페이스를 제공하기 위해 사용.
