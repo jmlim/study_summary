@@ -106,7 +106,7 @@ Q. 비슷한 식으로 팩토리를 쓰는데 메소드를 정적 메소드로 �
 ### PizzaStore 클래스 수정
  - 팩토리를 이용해서 피자 객체를 생성하도록 함.
 
-~~~
+~~~java
     public class PizzaStore {
         SimplePizzaFactory Factory;
 
@@ -408,3 +408,7 @@ public class NYPizzaStore extends PizzaStore {
 ~~~
 
 <img src="/design_pattern/factory_img/abstract_factory_img.jpg" />
+
+- 객체가 객체를 생성함. 
+    - 다양한 구성 요소 별로 "객체의 집합"을 생성해야 할 때 유용.
+- 팩토리 메소드 패턴은 클래스를 이용하여 객체를 만들고, 추상 팩토리 패턴은 객체 구성을 통해 객체를 만든다.
