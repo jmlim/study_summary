@@ -152,7 +152,7 @@ Q. 비슷한 식으로 팩토리를 쓰는데 메소드를 정적 메소드로 �
     - createPizza() 메소드에서 어떤 일을 할 지는 각 분점에서 결정함.
 
 ### 예제 
-#### Pizza.java (Product)
+### Pizza.java (Product)
 ~~~java
 public abstract class Pizza {
 	String name;
@@ -199,7 +199,7 @@ public abstract class Pizza {
 }
 ~~~
 
-#### PizzaStore.java (Creator)
+### PizzaStore.java (Creator)
 ~~~java
 public abstract class PizzaStore {
  
@@ -217,7 +217,7 @@ public abstract class PizzaStore {
 }
 ~~~
 
-#### NYPizzaStore.java (Creator 구상 클래스)
+### NYPizzaStore.java (Creator 구상 클래스)
 ~~~java
 public class NYPizzaStore extends PizzaStore {
 
@@ -235,7 +235,7 @@ public class NYPizzaStore extends PizzaStore {
 }
 ~~~
 
-#### NYStyleCheesePizza.java  (Product 구상 클래스)
+### NYStyleCheesePizza.java  (Product 구상 클래스)
 ~~~java
 public class NYStyleCheesePizza extends Pizza {
 
@@ -265,7 +265,7 @@ public class NYStyleCheesePizza extends Pizza {
         - 반죽, 소스, 치즈, 고기, 야채
     - 코드가 실제 제품하고 분리되어 있으므로 다른 공장을 사용하기만 하면 다른 결과를 얻을 수 있음.
 
-#### 원재료 공장 만들기
+### 원재료 공장 만들기
  - 원재료를 생산할 팩토리를 위한 인터페이스를 정의
 
 ~~~java
@@ -280,7 +280,7 @@ public interface PizzaIngredientFactory {
 // 재료마다 하나씩 클래스를 만들어야 함.
 ~~~
 
-#### 뉴욕 원재료 공장
+### 뉴욕 원재료 공장
  - 이 팩토리에서는 마리나라 소스, 레지아노 치즈, 신선한 조개 등을 전문적으로 생산.
 
 ~~~java
