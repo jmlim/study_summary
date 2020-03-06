@@ -59,7 +59,7 @@
 
 <img src="/stress_test/jmeter/img/10_thread.png" />
 
- - 만약 1초에 10개의 요청을 부하테스트가 종료될 때까지 보내고 싶다면? 
+ - 만약 1초동안 10개의 쓰레드로 부하테스트가 종료될 때까지 보내고 싶다면? 
    - Loop Count 의 infinite 체크박스를 클릭 한 후 Ramp-up period(seconds) 값을 1초로 변경한다.
 
 ### Sampler 만들기 (요청 액션)
@@ -87,7 +87,7 @@
  - 리스너들이 응답을 감시해서 각각의 해당하는 리포트를 만들어낸다.
  
 
- 아래 리스너는 1초에 10개의 요청을 한번만 보낸 후 뽑은 결과이다.
+ 아래 리스너는 1초에 10개의 쓰레드가 한번만 보낸 후 뽑은 결과이다.
 
 #### View Results Tree 결과
 <img src="/stress_test/jmeter/img/view_result_tree.png">
@@ -118,7 +118,7 @@
 #### Response Time Graph 보기
   - 기존 쓰레드 그룹에 Loop Count 의 infinite 체크박스를 클릭 
   - Graph settings 의 interval (ms) 값을 조정 후 (여기서는 1000ms로 주었음) 상단 Play 버튼으로 부하 실행
-    - 1초간각으로 응답시간의 수치를 그래프로 볼 수 있음.
+    - 1초간격으로 응답시간의 수치를 그래프로 볼 수 있음.
     - 주의 
       - settings 탭을 한번 다녀와야 그래프가 갱신됨 (..)
 
