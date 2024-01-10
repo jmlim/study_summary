@@ -62,6 +62,7 @@ docker logs -f 컨테이너명
 확인한 컨테이너명을 입력하고 기다리다 보면,
 ~~~
 - 연결 테스트
+  - id: system, pw: oracle
 ~~~
 docker exac -it 컨테이너명 sqlplus
 ~~~
