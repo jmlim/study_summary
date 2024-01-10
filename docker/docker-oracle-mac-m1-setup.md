@@ -80,5 +80,18 @@ select * from all_users;
 
 ### 접근하기
 
+### 설치 이후 실행 및 중지
+- 실행
+~~~
+colima start --memory 4 --arch x86_64
+docker start 컨테이너명
+~~~
+
+- 중지
+~~~
+colima stop
+docker start 컨테이너명
+~~~
+
 ### 출처
  - https://velog.io/@xangj0ng/M1-Oracle-DB-%EC%84%A4%EC%B9%98
