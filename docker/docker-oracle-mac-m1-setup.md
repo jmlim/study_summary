@@ -64,7 +64,7 @@ docker logs -f 컨테이너명
 - 연결 테스트
   - id: system, pw: oracle
 ~~~
-docker exac -it 컨테이너명 sqlplus
+docker exec -it 컨테이너명 sqlplus
 ~~~
 
 ### 계정생성
