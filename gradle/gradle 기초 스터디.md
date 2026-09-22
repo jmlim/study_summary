@@ -641,9 +641,17 @@ BUILD SUCCESSFUL in 4s
 ~~~
 
 그레이들의 태스크 그래프
- - 방향성 비순환 그래프 (Directed Acyclic Graph)
+ - 방향성 비순환 그래프 (Directed Acyclic Graph, DAG)
  - 태스크 간의 의존 관계를 시각적으로 표현
+ - `dependsOn`, `mustRunAfter`, `shouldRunAfter` 로 선언한 관계가 모여서 하나의 그래프를 구성하며, gradle은 이 그래프를 위상 정렬(topological sort)해서 실행 순서를 결정한다.
+    - 순환 의존(A가 B에 의존하는데 B도 A에 의존)이 생기면 그래프를 구성할 수 없으므로 빌드 시작 전에 에러가 발생한다.
+ - 실행 흐름은 크게 3단계로 나뉜다.
+    1. **초기화(Initialization)**: `settings.gradle` 을 읽어 어떤 프로젝트들이 빌드에 참여하는지 결정.
+    2. **구성(Configuration)**: 모든 `build.gradle` 스크립트를 실행해서 태스크 그래프를 구성. (이 단계에서 `task foo { println '...' }` 처럼 `<<` 없이 바로 있는 코드가 먼저 출력되는 이유가 이 단계 때문.)
+    3. **실행(Execution)**: 구성 단계에서 만들어진 그래프를 바탕으로, 요청받은 태스크와 그 의존 태스크들을 순서대로 실행.
+ - 그래프 확인 명령어
+    ~~~
+    gradle exeTask1 --dry-run   # 실제 실행 없이 어떤 순서로 태스크가 도는지만 확인
+    ~~~
+ - `dependsOn` 은 "반드시 먼저 끝나야 하는 강한 의존"이고, `mustRunAfter`/`shouldRunAfter` 는 "의존 관계는 아니지만 순서만 강제"한다는 차이가 있음 — 즉 `exeTaskAfter.mustRunAfter exeTaskBefore` 는 `exeTaskAfter`만 단독 실행할 경우 `exeTaskBefore`를 자동으로 실행시켜주지 않는다(순서만 정할 뿐, 의존해서 끌고 오지는 않음). 반면 `dependsOn`은 대상 태스크가 없으면 자동으로 함께 실행된다.
 
- 
- ... 작성중 ...
- 

@@ -127,6 +127,53 @@ backup - 이 서버는 백업서버로 간주하고 다른 메인 서버가 죽�
 down - 표시한 서버는 사용치 않는다.
 ~~~
 
-작성중..
+### 헬스 체크 (죽은 서버 자동 제외)
+- nginx 오픈소스 버전은 별도 모듈 없이도 `max_fails` / `fail_timeout` 조합으로 **수동적(passive) 헬스체크**가 가능하다 (위에서 다룬 파라미터가 바로 이것).
+    - 요청이 실제로 실패해야 감지하는 방식이라, 트래픽이 뜸한 서버는 죽어도 늦게 감지될 수 있음.
+- 진짜 "능동적(active) 헬스체크"(주기적으로 ping 날려서 살았는지 확인)는 nginx **plus**(유료) 또는 오픈소스 nginx에서는 `nginx_upstream_check_module` 같은 서드파티 모듈을 컴파일해 넣어야 한다.
+- 쿠버네티스/ALB 환경으로 넘어가면 이 역할은 보통 nginx 대신 로드밸런서나 오케스트레이터의 livenessProbe/healthcheck 가 담당하게 됨 — 최신 인프라에서는 nginx를 직접 이렇게 쓰는 대신 Ingress Controller로 감싸는 경우가 많다.
+
+### 세션 유지 (Sticky session)
+- 라운드로빈으로 요청을 분산하면 같은 사용자의 요청이 매번 다른 서버로 갈 수 있음. 서버가 세션을 메모리에 들고 있는 구조(WAS 세션)라면 로그인이 풀리는 등 문제가 생김.
+- 해결 방법
+    1. **ip_hash** — 같은 클라이언트 IP는 항상 같은 서버로 보냄. 간단하지만 NAT 뒤에 여러 사용자가 몰려있으면 분산이 안 될 수 있음.
+    2. **세션을 외부 저장소로 분리** — 근본적인 해결책. WAS 자체 세션 대신 Redis 같은 외부 스토어에 세션을 저장하면 어느 서버로 가든 상관없어짐. (블로그의 `spring-session-redis.md` 글이 바로 이 방식.)
+    3. `sticky` 지시자 — nginx **plus** 전용 기능(오픈소스에는 없음).
+- 실무에서는 대부분 **2번(세션 외부화)**을 정답으로 취급한다. 로드밸런서에 sticky 로직을 넣는 건 임시방편에 가깝고, 서버를 무중단으로 늘리거나 줄이는(오토스케일링) 순간 다시 문제가 됨.
+
+### HTTPS 종료(TLS Termination)
+- 여러 대의 WAS 각각에 인증서를 넣는 대신, nginx(로드밸런서) 한 곳에서만 HTTPS를 처리하고 내부적으로는 HTTP로 WAS와 통신하는 구조가 일반적.
+~~~
+server {
+    listen 443 ssl;
+    server_name example.com;
+
+    ssl_certificate     /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+
+    location / {
+        proxy_pass http://myserver;              # 내부는 http
+        proxy_set_header X-Forwarded-Proto https; # WAS 쪽에서 원래 요청이 https였음을 알 수 있도록
+        proxy_set_header X-Real-IP $remote_addr;  # 블로그의 X-Forwarded-For 글과 연결되는 부분
+    }
+}
+~~~
+- 이렇게 하면 인증서 관리 지점이 하나로 줄고, WAS는 TLS 부담 없이 순수 애플리케이션 로직에만 집중할 수 있음.
+
+### 정적 리소스 캐싱
+~~~
+location ~* \.(jpg|jpeg|png|gif|css|js)$ {
+    expires 30d;
+    add_header Cache-Control "public, immutable";
+}
+~~~
+- 이미지/CSS/JS 처럼 자주 안 바뀌는 정적 파일은 nginx 단에서 캐시 헤더를 붙여 브라우저/CDN이 재요청하지 않도록 하는 것이 트래픽 절감에 큰 영향을 준다.
 
 출처 : https://kamang-it.tistory.com/m/entry/WebServernginxnginx%EB%A1%9C-%EB%A1%9C%EB%93%9C%EB%B0%B8%EB%9F%B0%EC%8B%B1-%ED%95%98%EA%B8%B0
+
+---
+
+## 다음 학습 주제
+- Spring Session + Redis (블로그 [spring-session-redis](http://jmlim.github.io/spring/2018/11/30/spring-session-redis/)) — sticky session 대신 세션을 외부화하는 실전 구현
+- Kubernetes Ingress / Service — nginx로 직접 하던 로드밸런싱·헬스체크가 클러스터 환경에서는 어떻게 대체되는지
+- TLS 핸드셰이크 동작 원리 — HTTPS 종료를 그냥 설정으로만 알고 넘어가지 않고, 왜 종료 지점을 하나로 모으는 게 성능에 유리한지 원리 이해
