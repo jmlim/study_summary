@@ -1,5 +1,7 @@
 ## docker로 mysql 설치 (한글 깨짐 옵션 추가)
 
+> **[2026년 추가]** 예제의 `mysql:5.6.35` 이미지는 참고용으로만 볼 것 — **MySQL 5.6은 2021년 2월에 이미 공식 지원이 종료(EOL)**됐다. 새로 띄운다면 8.0 계열 최신 태그를 쓸 것. 또한 `docker-compose.yml`의 `version: "2.2"` 키는 최신 Docker Compose(V2, `docker compose` 명령어 내장 버전)에서는 더 이상 필요 없고 무시된다 — 최신 compose 파일에서는 이 줄을 생략해도 된다.
+
 ### docker-compose.yml 생성
 ~~~
 version: "2.2" # 기준 버전

@@ -6,6 +6,22 @@
 > 출처 :열혈강의 그레이들 
  - https://www.youtube.com/watch?v=s-XZ5B15ZJ0&list=PL7mmuO705dG2pdxCYCCJeAgOeuQN1seZz&index=1
 
+> **[2026년 추가, 중요]** 이 문서의 예제 대부분이 `task xxx << { ... }` 형태의 **`<<` 연산자로 태스크 액션을 정의하는데, 이 문법은 Gradle 5.0(2018년 말)부터 완전히 제거되어 더 이상 동작하지 않는다** (공식 업그레이드 가이드에 "you can not use the syntax `task myTask << { }`"라고 명시됨). 아래 예제들을 실제로 따라 하려면 `<<` 를 전부 `doLast { }` 로 바꿔야 한다.
+> ```groovy
+> // 이 문서의 문법 (Gradle 5.0+ 에서 에러)
+> task hello << {
+>     println "Hello Gradle!"
+> }
+>
+> // 고친 문법
+> task hello {
+>     doLast {
+>         println "Hello Gradle!"
+>     }
+> }
+> ```
+> 그 외 나머지 내용(스크립트 블록, 변수, 태스크 의존관계 등)은 여전히 유효하다.
+
 #### 빌드 수행 단계
  - 명령어 해석/수행
  - gradle 실행

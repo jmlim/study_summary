@@ -1,5 +1,7 @@
 ## docker로 oracle 설치 (apple M1)
 
+> **[2026년 추가]** 이 글을 쓸 당시엔 Apple Silicon에서 오라클을 돌릴 공식적인 방법이 없어서 x86_64 에뮬레이션(Colima) + 커뮤니티 이미지(`jaspeen/oracle-xe-11g`, 이미 2011년에 나온 11gR2 XE)로 우회해야 했다. 지금은 **Oracle이 공식적으로 ARM64를 지원하는 "Oracle Database Free" 에디션을 제공**하므로, M1/M2/M3 맥이라면 에뮬레이션 없이 네이티브로 훨씬 빠르게 띄울 수 있다. Oracle 공식 GitHub(`oracle/docker-images`)나 Oracle Container Registry에서 최신 Free 에디션 이미지를 받는 걸 우선 고려할 것 — 아래 내용은 "그 당시엔 이렇게 우회했었다"는 기록으로 남겨둔다.
+
 - 기본적으로, Apple Silicon(ARM 아키텍처를 사용해 애플이 설계한 프로세서)이 적용된 M1 맥북(M1 pro 포함)의 경우 oracle database 설치가 불가능하다.
 - 따라서, M1 맥북 사용자라면 로컬이 아닌 외부에 ORACLE 데이터베이스를 구성하여 사용하는데,mac OS에서는 오라클DB를 바로 사용할 수 없어서 Docker를 통해 이용한다.
 - 또한 Docker DeskTop은 무겁기 때문에 이를 대신하는 Colima는 간단한 CLI 환경에서 도커 컨테이너들을 실행 할 수 있는 오픈 소스 소프트웨어이다.
