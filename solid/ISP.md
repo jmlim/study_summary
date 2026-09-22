@@ -383,3 +383,10 @@ public class Application {
         - 그러나 두 번째 설계에서는 RedisConfig 클래스, KafkaConfig 클래스, MysqlConfig 클래스가 사용하지 않을 수도 있는 update(), output(), outputInPlainText()를 모두 다 구현해야 한다.
         - 뿐만 아니라 Config에 새 인터페이스가 추가될 때마다, 모든 구현 클래스도 해당 인터페이스를 모두 구현해야 한다.
             - 반대로.. 인터페이스 밀도가 상대적으로 작은 경우 인터페이스 변경에 따라 수정해야 하는 클래스도 그만큼 줄어든다.
+
+---
+
+## 다음 학습 주제
+- [DIP](./DIP.md) — 인터페이스를 잘게 쪼갰다면, 이제 상위 모듈이 그 "쪼개진 추상화"에만 의존하도록 만드는 것이 DIP
+- 인터페이스 분리를 실제로 적용한 사례: Spring의 `Repository`/`CrudRepository`/`JpaRepository` 계층 구조가 왜 저렇게 나뉘어 있는지 뜯어보기
+- Role Interface 패턴 — ISP를 객체지향 설계에서 부르는 다른 이름, Martin Fowler의 정의와 비교
