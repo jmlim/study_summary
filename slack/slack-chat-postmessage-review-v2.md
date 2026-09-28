@@ -31,7 +31,7 @@ Slack Web API `chat.postMessage`를 Java(Spring) 애플리케이션에서 어떤
 
 ### 핵심 결론
 
-1. **동기 호출은 정식 방식이다.** Slack 공식 Java SDK의 기본 client(`MethodsClient`)는 동기 방식이다. 동기로 운영해도 대부분 문제가 없다.
+1. **동기 호출은 정식 방식이다.** Slack 공식 Java SDK의 기본 client(`MethodsClient`)는 동기 방식이다. 동기로 운영해도 대부분 문제가 없다. Slack이 요청 안에서는 짧은 일만 하고 무거운 일은 내부 Job Queue로 넘기도록 설계해 두었기 때문이다(2.2, 3.3).
 2. **다만 Slack이 항상 빠르고 항상 성공한다고 가정하면 안 된다.** Slack은 몇 분에서 십수 시간짜리 장애를 실제로 겪었다. 동기 호출의 위험은 **Slack이 느려지는 순간**과 **호출이 한꺼번에 몰리는 순간**에만 드러난다.
 3. **보낼 수 있는 양의 상한은 Slack이 정한다.** 같은 채널에는 초당 약 1건, workspace 전체에는 분당 수백 건이다. 비동기나 Queue로 바꿔도 이 상한은 늘어나지 않는다. 상한을 넘으면 **메시지를 묶어서(요약) 줄이는 것**이 유일한 해법이다.
 4. **방식은 두 가지 기준으로 고른다.**
@@ -89,7 +89,7 @@ AsyncMethodsClient asyncClient = slack.methodsAsync(token); // 비동기 (Comple
 Slack이 이유를 공식적으로 밝힌 적은 없다. 아래는 Web API 구조와 SDK 구성에서 읽을 수 있는 해석이다.
 
 **(1) Web API 자체가 "요청하고 응답을 받는" 구조다.**
-`chat.postMessage`는 HTTP 요청을 보내면 `{"ok": true, "ts": "...", ...}` 같은 JSON 응답을 바로 돌려준다. 이것을 코드로 가장 그대로 옮기면 "메서드를 호출하고 반환값을 받는" 동기 메서드가 된다. SDK는 HTTP API를 1:1로 감싼 얇은 계층이다.
+`chat.postMessage`는 HTTP 요청을 보내면 `{"ok": true, "ts": "...", ...}` 같은 JSON 응답을 바로 돌려준다. 이것을 코드로 가장 그대로 옮기면 "메서드를 호출하고 반환값을 받는" 동기 메서드가 된다. SDK는 HTTP API를 1:1로 감싼 얇은 계층이다. GitHub, Stripe 같은 대부분의 웹 API도 같은 형태다. Slack이 특별히 고른 방식이라기보다 봇, 스크립트, `curl` 등 어떤 환경에서도 부를 수 있는 기본형이고, 비동기·Queue는 호출하는 쪽이 고를 몫으로 남겨 둔 것이다.
 
 **(2) 호출 결과가 바로 필요한 경우가 많다.**
 
@@ -107,8 +107,13 @@ Spring MVC는 요청 하나를 thread 하나가 처음부터 끝까지 처리한
 **(4) "어떤 비동기가 맞는지"는 SDK가 대신 정할 수 없다.**
 유실을 허용할지, 재시도할지, DB에 보관할지는 앱마다 다르다. SDK의 `AsyncMethodsClient`도 메모리 queue와 rate limit 고려까지만 해 준다(4.4). 그 이상은 애플리케이션이 정할 정책이다.
 
-**(5) 평소에는 충분히 빠르다.**
-Slack이 정상이면 호출 한 번은 보통 수백 ms 안에 끝난다. 양이 적으면 기다려도 비용이 작다.
+**(5) Slack 내부가 동기 구간을 짧게 끝내도록 설계되어 있다.**
+`chat.postMessage` 요청 안에서 Slack이 하는 일은 timestamp 발급, 메시지 저장, 후속 작업 등록 정도다. link preview, push 알림, URL unfurl처럼 무거운 일은 Job Queue로 넘겨 나중에 처리한다(3.3). 그래서 Slack이 정상이면 호출 한 번은 보통 수백 ms 안에 끝나고, 양이 적으면 기다려도 비용이 작다. 공개 자료로 추정하면 `ok:true`는 "채널 멤버 모두에게 전달 완료"가 아니라 **"Slack이 받아서 저장했다"** 는 뜻에 가깝다.
+
+**(6) Slack은 rate limit으로 스스로를 보호한다.**
+동기 호출이 한꺼번에 몰려도 한도를 넘은 요청은 429로 바로 거절한다(2.3). 호출자가 많아져도 Slack 서버가 무너지지 않는 장치다.
+
+> 다만 이 설계가 보장하는 것은 **"Slack이 정상일 때 응답이 빠르다"** 까지다. Slack 내부 구성 요소가 고장 나면 동기 호출도 그대로 느려지거나 실패한다(3.1, 3.3). 그래서 우리 쪽의 timeout, 알림 양 조절, 실패 격리는 여전히 필요하다.
 
 ### 2.3 Rate limit
 
@@ -182,16 +187,52 @@ Spring Boot 내장 Tomcat의 기본 최대 thread 수는 200이다(`server.tomca
 
 같은 트래픽에서 **timeout 하나로 피해 규모가 몇 배 달라진다.** 이 계산이 5장 트래픽 구간의 근거가 된다.
 
-### 3.3 Slack 내부 설계에서 얻는 힌트
+### 3.3 Slack 내부 구조: 동기 구간은 짧게, 무거운 일은 비동기로
 
-**Slack도 오래 걸리는 작업은 Job Queue로 분리한다.** 메시지 게시, push notification, URL unfurl, calendar reminder, billing 계산을 Job Queue로 처리한다. 공개 당시(2017-12 게시, 2020-06 갱신) 규모는 하루 14억 건 이상, 피크 초당 33,000건이었다.
+Slack Engineering이 공개한 글(Koi Pond, Scaling Slack's Job Queue, Real-time Messaging)을 합쳐 단순화한 그림이다. 현재 구현의 세부 사항까지 공개된 것은 아니다.
 
-**chat.postMessage의 내부 흐름** (Slack Engineering의 Koi Pond 글 기준. 현재 구현의 세부 순서까지 공개된 것은 아니다)
+```text
+ 우리 서버 (MethodsClient)
+     │ ① POST chat.postMessage                 ▲ ⑥ {"ok":true,"ts":"..."}
+     ▼                                         │
+╔═ Slack ═══════════════════════════════════════════════════════════════╗
+║ [Rate limit] ── 한도 초과 → 즉시 429 (Slack 자신을 보호)                  ║
+║      │                                                                ║
+║ [Webapp / API backend]   ◀━━ 동기 구간: 짧은 일만 하고 응답 ━━▶          ║
+║   ├─ ② timestamp(ts) 발급 ──────▶ [Real-time services]                ║
+║   ├─ ③ 메시지 저장 ─────────────▶ [Vitess: messages 테이블]            ║
+║   ├─ ④ 후속 job 등록 ───────────▶ [Kafkagate] (Kafka 저장 확인까지만)   ║
+║   └─ ⑤ 실시간 전달 요청 ─────────▶ [Admin Server]                      ║
+║                                                                       ║
+║ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ 여기부터 비동기로 진행 ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ║
+║                                                                       ║
+║ [Job Queue]   Kafka ──▶ JQRelay ──▶ Redis ──▶ Job Worker               ║
+║               (link preview, push 알림, URL unfurl, billing 등)        ║
+║                                                                       ║
+║ [실시간 전달] Admin Server ──▶ Channel Server ──▶ Gateway Server (지역별) ║
+╚═══════════════════════════════════════════════════════════│═══════════╝
+                                                            │ websocket
+                                                            ▼
+                                    채널 멤버들의 Slack 앱 (전 세계 약 500ms 안에 전달)
+```
 
-1. backend가 real-time service에서 timestamp를 받는다.
-2. 메시지를 Vitess의 `messages` table에 기록한다.
-3. link·attachment preview 같은 후속 작업을 비동기 job으로 만든다.
-4. 채널의 client들에게 websocket 이벤트를 보낸다.
+- ②~⑤는 Koi Pond 글에 나온 순서다. ⑥ 응답이 ⑤ 실시간 전달과 비교해 정확히 언제 돌아오는지는 공개되지 않았다.
+
+| 구성 요소 | 역할 |
+|---|---|
+| Webapp / API backend | 요청을 받아 짧은 일만 처리하고 응답한다 |
+| Vitess | 메시지를 저장하는 분산 MySQL |
+| Kafkagate | job을 받아 Kafka에 넣는 입구. Kafka 저장 확인까지만 동기로 기다린다 |
+| Kafka | job을 디스크에 안전하게 쌓아 두는 buffer. 꺼내는 속도보다 넣는 속도가 빨라도 버틴다 |
+| JQRelay | Kafka의 job을 Redis queue로 옮긴다 |
+| Redis + Job Worker | job을 꺼내 실제로 실행한다. 공개 당시(2017-12 게시, 2020-06 갱신) 하루 14억 건 이상, 피크 초당 33,000건 |
+| Admin Server | backend와 Channel Server를 이어 준다 |
+| Channel Server | 채널별로 나뉘어(consistent hashing) 메시지를 구독 중인 Gateway Server에 뿌린다 |
+| Gateway Server | 지역별로 배치되어 사용자 앱과 websocket으로 연결된다 |
+
+**Slack도 오래 걸리는 작업은 Job Queue로 분리한다.** Slack은 Job Queue를 "web request 안에서 처리하기엔 너무 오래 걸리는 로직"을 위한 것이라고 설명한다. 메시지 게시의 후속 작업, push notification, URL unfurl, calendar reminder, billing 계산이 여기서 처리된다. 덕분에 `chat.postMessage` 호출자는 무거운 작업을 기다리지 않고 "접수했다"는 응답만 빠르게 받는다. 이것이 동기 호출이 정식 방식으로 성립하는 이유다(2.2).
+
+**그래도 동기 구간은 고장 날 수 있다.** 위 그림의 동기 구간에 있는 구성 요소가 고장 나면 우리 쪽 동기 호출도 그대로 느려지거나 실패한다. 3.1의 2020-10 장애(DB 앞단 cache → service discovery)가 그런 경우다. 비동기 구간이 고장 나면 후속 기능이 멈춘다. 2022-03 장애(Job Queue)에서는 webhook, 메시지 수정 등이 영향을 받았다.
 
 **Slack도 "무조건 비동기"로 설계하지 않는다.** job을 Kafka에 넣는 Kafkagate는 **동기 write**를 쓴다. job이 실제로 queue에 들어갔는지 확인해 주기 위해서다(단, 가용성을 위해 leader의 확인만 기다리고 복제까지는 기다리지 않는다).
 
@@ -1091,6 +1132,7 @@ slackSender.send(channelId, text);
 
 - [Scaling Slack's Job Queue](https://slack.engineering/scaling-slacks-job-queue/) (2017-12, 2020-06 갱신)
 - [Load Testing with Koi Pond](https://slack.engineering/load-testing-with-koi-pond/) (2021-04)
+- [Real-time Messaging](https://slack.engineering/real-time-messaging/)
 
 ### Slack Status 장애 보고
 
